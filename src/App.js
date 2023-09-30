@@ -3,70 +3,94 @@ import axios from 'axios';
 
 const App = () => {
 
-  const [importedFile, setImportedFile] = useState(null); 
   const [files, setFiles] = useState([]); 
+  const [formatedFile, setFormatedFile] = useState({
+    name: "", 
+    content: ""
+  })
 
-  const fetchData = async () => {
+  const fetchFile = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/files2');
-      setFiles(response.data); 
+      const response = await axios.get('http://localhost:5000/files'); 
+      console.log(response); 
+      setFiles(response.data)
     }
-    catch (error) {
-      console.error("Erreur lors de la récupération du contenu du fichier importé"); 
-    }
+    catch(error) {
+      console.error("Erreur lors de la récupération du fichier"); 
+    }; 
+  }
+
+  const addAndFetch = async () => {
+    if (formatedFile.name !== "" && formatedFile.content !=="") {
+      await addFile();
+      await fetchFile();  
+    };
   }
 
   useEffect(() => {
-    createFile()
-    fetchData()
-  }, [importedFile]); 
+    addAndFetch(); 
+  }, [formatedFile]);
 
-  const createFile = async () => {
-    try {
-      if (importedFile) {
-        const reader = new FileReader(); 
-
-        reader.onload = async (event) => {
-          const fileContent = event.target.result; 
-          const file = {
-            content : fileContent
-          }
-          const response = await axios.post('http://localhost:5000/files2', file); 
-        }
-
-        reader.readAsText(importedFile); 
-      }
+  const setContent = (file) => {
+    const reader = new FileReader(); 
+    reader.onload = (event) => {
+      const content = event.target.result; 
+      setFormatedFile(formatedFile =>  ({...formatedFile, content: content})); 
     }
-    catch (error)  {
-      console.error("Erreur lors de la création de l'enregistrement du fichier en base de données"); 
-    }
+    reader.readAsText(file); 
   }
+
+  const handleImport = (e) => {
+    let file = e.target.files[0]; 
+      setFormatedFile(formatedFile => ({...formatedFile, name: file.name})); 
+      setContent(file);
+  }; 
+
+  const addFile = async () => {
+    try {
+      await axios.post('http://localhost:5000/files', formatedFile); 
+    }
+    catch(error) {
+      console.error("Erreur lors de l'enregistrement du fichier", error)
+    }
+  } 
 
   const deleteAll = async () => {
     try {
-      await axios.delete(`http://localhost:5000/files2`); 
+      await axios.delete('http://localhost:5000/deleteAll'); 
+      fetchFile(); 
     }
     catch(error) {
-      console.error("Erreur lors de la suppression de toutes la base de données"); 
+      console.error("Erreur lors de la suppression du fichier :", error); 
     }; 
   }; 
 
   return (
     <div>
-      <h1>Lecture de fichiers textuel locaux - Entrainement fullstack n°2</h1>
-      <input type="file" accept="text/*" onChange={(e) => setImportedFile(e.target.files[0])}/>
-      <button onClick={fetchData}>Fetch data</button>
-      <button onClick={() => console.log(files[0].content)}>Console log content</button>
-      <button onClick={() => console.log(files)} >console.log files</button>
-      <button onClick={deleteAll}>Delete all</button>
-      <button onClick={() => console.log(importedFile)}>log imported file</button>
+      <h1>Lecture de fichier locaux</h1>
       {
-        files.length > 0 && files.map((file) => (
-          <p key={file._id}>{file.content}</p>
-        ))
+        files.length === 0 && 
+          <input
+          type="file"
+          accept="text/*"
+          onChange={handleImport}
+        />
+      } 
+      {
+        files.length > 0 &&  files.map((file) => {
+          return (
+          <div key={file._id}>
+            <p>Nom du fichier : {file.name}</p>
+            <p> Contenu du fichier : {file.content}</p>
+          </div>
+        )})
+      }
+      {
+        files.length > 0 && <button onClick={deleteAll}>Supprimer le fichier</button>
       }
     </div>
   )
 }
 
 export default App; 
+
